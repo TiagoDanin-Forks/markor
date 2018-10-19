@@ -244,4 +244,6 @@ work. If not, see <https://creativecommons.org/publicdomain/zero/1.0/>.
     <string name="no_calendar_app_is_installed">No calendar app is installed!</string>
     <string name="popular_documents">Popular documents</string>
     <string name="zero_width_space">Zero-width space</string>
+    <string name="basic_color_theme">Basic color theme</string>
+    <string name="background_and_textcolor_in_editor_works_dark_light">Editor background color and (normal) text color. Editor basic color themes automatically adjust to app theme, so are available in light and dark appearance.</string>
 </resources>
