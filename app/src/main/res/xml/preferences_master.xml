@@ -156,14 +156,14 @@
                 android:summary="@string/hide_statusbar_at_this_view"
                 android:title="@string/hide_statusbar" />
             <ListPreference
-                android:defaultValue="@string/editor_base_theme_markor"
-                android:dialogTitle="@string/basic_color_theme"
-                android:entries="@array/pref_arrkeys__editor_base_themes"
-                android:entryValues="@array/pref_arrkeys__editor_base_themes"
+                android:defaultValue="@string/editor_basic_color_scheme_markor"
+                android:dialogTitle="@string/basic_color_scheme"
+                android:entries="@array/pref_arrkeys__editor_basic_color_schemes"
+                android:entryValues="@array/pref_arrkeys__editor_basic_color_schemes"
                 android:icon="@drawable/ic_palette_black_24dp"
-                android:key="@string/pref_key__app_theme"
-                android:summary="@string/background_and_textcolor_in_editor_works_dark_light"
-                android:title="@string/basic_color_theme" />
+                android:key="@string/pref_key__editor_basic_color_scheme"
+                android:summary="@string/background_foreground_color_in_editor_works_dark_light"
+                android:title="@string/basic_color_scheme" />
         </PreferenceCategory>
     </PreferenceScreen>
 

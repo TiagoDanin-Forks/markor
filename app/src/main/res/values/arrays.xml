@@ -22,10 +22,10 @@
         <item translatable="false">@string/app_theme_dark</item>
     </string-array>
 
-    <string-array name="pref_arrkeys__editor_base_themes" translatable="false">
-        <item translatable="false">@string/editor_base_theme_markor</item>
-        <item translatable="false">@string/editor_base_theme_black_or_white</item>
-        <item translatable="false">@string/editor_base_theme_solarized</item>
+    <string-array name="pref_arrkeys__editor_basic_color_schemes" translatable="false">
+        <item translatable="false">@string/editor_basic_color_scheme_markor</item>
+        <item translatable="false">@string/editor_basic_color_scheme_black_or_white</item>
+        <item translatable="false">@string/editor_basic_color_scheme_solarized</item>
     </string-array>
 
     <string-array name="textmoduleactions_press_key__text" translatable="false">
