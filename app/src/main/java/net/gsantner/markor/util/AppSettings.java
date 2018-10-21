@@ -361,4 +361,8 @@ public class AppSettings extends SharedPreferencesPropertyBackend {
     public boolean isTodoTxtAlternativeNaming() {
         return getBool(R.string.pref_key__todotxt__alternative_naming_context_project, true);
     }
+
+    public String getEditorBasicTheme(){
+        return "";
+    }
 }
