@@ -15,7 +15,6 @@ import android.support.v4.os.ConfigurationCompat;
 import android.support.v7.app.AlertDialog;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -69,20 +68,10 @@ public class DatetimeFormatDialog {
         final CheckBox alwaysNowCheckBox = viewRoot.findViewById(R.id.always_use_current_time);
         alwaysNowCheckBox.setChecked(false);
 
-        // combo box for format ->> we can write our own format or select one of default formats
-        timeFormatEditText.setOnTouchListener((v, event) -> {
-            final int DRAWABLE_RIGHT = 2;
-            if (event.getAction() == MotionEvent.ACTION_UP) {
-                if (event.getX() >= (v.getWidth() - ((EditText) v).getCompoundDrawables()[DRAWABLE_RIGHT].getBounds().width())) {
-                    popupWindow.show();
-                    return true;
-                }
-            }
-            return false;
-        });
 
+        viewRoot.findViewById(R.id.datetime_format_input_show_spinner).setOnClickListener(v -> popupWindow.show());
         popupWindow.setAdapter(new SimpleAdapter(activity, createAdapterData(defaultDatetimeFormats),
-                R.layout.extended_simple_list_item_2, new String[]{"format", "date"},
+                android.R.layout.simple_expandable_list_item_2, new String[]{"format", "date"},
                 new int[]{android.R.id.text1, android.R.id.text2}
         ));
         popupWindow.setAnchorView(timeFormatEditText);
