@@ -411,6 +411,8 @@
 - Different branding
 - New initial features
 
+![matomo](https://test.gsantner.net/matomo/matomo.php?idsite=2&amp;rec=1&amp;action_name=inapp_changelog)
+
 ### v
 **New features:**  
 -
