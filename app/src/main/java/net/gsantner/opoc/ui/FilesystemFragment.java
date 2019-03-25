@@ -27,6 +27,7 @@ import android.support.annotation.ColorRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.util.Pair;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
@@ -35,9 +36,12 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Toast;
 
-import net.gsantner.markor.App;
 import net.gsantner.markor.R;
+import net.gsantner.markor.format.markdown.MarkdownTextConverter;
+import net.gsantner.markor.ui.FileInfoDialog;
+import net.gsantner.markor.ui.FilesystemDialogCreator;
 import net.gsantner.markor.util.AppSettings;
 import net.gsantner.markor.util.ContextUtils;
 import net.gsantner.markor.util.PermissionChecker;
@@ -45,18 +49,22 @@ import net.gsantner.opoc.activity.GsFragmentBase;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
+import other.writeily.model.WrMarkorSingleton;
+import other.writeily.ui.WrConfirmDialog;
+import other.writeily.ui.WrRenameDialog;
 
 public class FilesystemFragment extends GsFragmentBase
         implements FilesystemDialogData.SelectionListener {
     //########################
     //## Static
     //########################
-    public static final String FRAGMENT_TAG = "FilesystemDialogCreator";
+    public static final String FRAGMENT_TAG = "FilesystemFragment";
 
     public static final int SORT_BY_DATE = 0;
     public static final int SORT_BY_NAME = 1;
@@ -83,6 +91,9 @@ public class FilesystemFragment extends GsFragmentBase
     private FilesystemDialogData.SelectionListener _callback;
     private File _initialRootFolder = null;
     private boolean firstResume = true;
+    private AppSettings _appSettings;
+    private ContextUtils _contextUtils;
+    private Menu _fragmentMenu;
 
     //########################
     //## Methods
@@ -93,10 +104,13 @@ public class FilesystemFragment extends GsFragmentBase
         super.onViewCreated(root, savedInstanceState);
         Context context = getContext();
         ButterKnife.bind(this, root);
+        _appSettings = new AppSettings(root.getContext());
+        _contextUtils = new ContextUtils(root.getContext());
 
         LinearLayoutManager lam = (LinearLayoutManager) _recyclerList.getLayoutManager();
         DividerItemDecoration dividerItemDecoration = new DividerItemDecoration(getActivity(), lam.getOrientation());
         _recyclerList.addItemDecoration(dividerItemDecoration);
+        _previousNotebookDirectory = AppSettings.get().getNotebookDirectoryAsStr();
 
         _filesystemDialogAdapter = new FilesystemDialogAdapter(_dopt, context, _recyclerList);
         _recyclerList.setAdapter(_filesystemDialogAdapter);
@@ -186,6 +200,18 @@ public class FilesystemFragment extends GsFragmentBase
         if (_callback != null) {
             _callback.onFsDoUiUpdate(adapter);
         }
+
+        boolean multi1 = _dopt.doSelectMultiple && _filesystemDialogAdapter.getCurrentSelection().size() == 1;
+        boolean multiMore = _dopt.doSelectMultiple && _filesystemDialogAdapter.getCurrentSelection().size() > 1;
+
+        if (_fragmentMenu != null && _fragmentMenu.findItem(R.id.context_menu_delete) != null) {
+            _fragmentMenu.findItem(R.id.context_menu_delete).setVisible(multi1 || multiMore);
+            _fragmentMenu.findItem(R.id.context_menu_rename).setVisible(multi1);
+            _fragmentMenu.findItem(R.id.context_menu_info).setVisible(multi1);
+            _fragmentMenu.findItem(R.id.context_menu_move).setVisible(multi1 || multiMore);
+            _fragmentMenu.findItem(R.id.action_go_to).setVisible(!multi1 && !multiMore);
+            _fragmentMenu.findItem(R.id.action_sort).setVisible(!multi1 && !multiMore);
+        }
     }
 
     @Override
@@ -218,16 +244,20 @@ public class FilesystemFragment extends GsFragmentBase
         super.onSaveInstanceState(outState);
     }
 
+    private static String _previousNotebookDirectory;
+
     @Override
     public void onResume() {
         super.onResume();
-        if (_dopt.rootFolder != Environment.getExternalStorageDirectory() && _dopt.rootFolder != AppSettings.get().getNotebookDirectory()) {
+        if (!AppSettings.get().getNotebookDirectoryAsStr().equals(_previousNotebookDirectory)) {
             _dopt.rootFolder = AppSettings.get().getNotebookDirectory();
             _filesystemDialogAdapter.setCurrentFolder(_dopt.rootFolder, false);
         }
 
         if (!firstResume) {
-            _filesystemDialogAdapter.reloadCurrentFolder();
+            if (_filesystemDialogAdapter.getCurrentFolder() != null) {
+                _filesystemDialogAdapter.reloadCurrentFolder();
+            }
         }
 
         firstResume = false;
@@ -243,16 +273,25 @@ public class FilesystemFragment extends GsFragmentBase
         cu.setSubMenuIconsVisiblity(menu, true);
 
         MenuItem item;
-
         if ((item = menu.findItem(R.id.action_folder_first)) != null) {
             item.setChecked(AppSettings.get().isFilesystemListFolderFirst());
         }
+
+        List<Pair<File, String>> sdcardFolders = _contextUtils.getAppDataPublicDirs(false, true, true);
+        int[] sdcardResIds = {R.id.action_go_to_appdata_sdcard_1, R.id.action_go_to_appdata_sdcard_2};
+        for (int i = 0; i < sdcardResIds.length && i < sdcardFolders.size(); i++) {
+            item = menu.findItem(sdcardResIds[i]);
+            item.setTitle(item.getTitle().toString().replaceFirst("[)]\\s*$", " " + sdcardFolders.get(i).second) + ")");
+            item.setVisible(true);
+        }
+        _fragmentMenu = menu;
     }
 
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         PermissionChecker permc = new PermissionChecker(getActivity());
+        List<Pair<File, String>> appDataPublicDirs = _contextUtils.getAppDataPublicDirs(false, true, false);
 
         File folderToLoad = null;
 
@@ -304,18 +343,69 @@ public class FilesystemFragment extends GsFragmentBase
                 break;
             }
             case R.id.action_go_to_appdata_private: {
-                folderToLoad = FilesystemDialogAdapter.VIRTUAL_STORAGE_APP_DATA_PRIVATE;
+                folderToLoad = _contextUtils.getAppDataPrivateDir();
                 break;
             }
-
             case R.id.action_go_to_storage: {
                 folderToLoad = Environment.getExternalStorageDirectory();
                 break;
             }
+            case R.id.action_go_to_appdata_sdcard_1: {
+                if (appDataPublicDirs.size() > 0) {
+                    folderToLoad = appDataPublicDirs.get(0).first;
+                }
+                break;
+            }
+            case R.id.action_go_to_appdata_sdcard_2: {
+                if (appDataPublicDirs.size() > 1) {
+                    folderToLoad = appDataPublicDirs.get(1).first;
+                }
+                break;
+            }
+            case R.id.action_go_to_appdata_public: {
+                appDataPublicDirs = _contextUtils.getAppDataPublicDirs(true, false, false);
+                if (appDataPublicDirs.size() > 0) {
+                    folderToLoad = appDataPublicDirs.get(0).first;
+                }
+                break;
+            }
+            case R.id.context_menu_delete: {
+                askForDeletingFilesRecursive((confirmed, data) -> {
+                    if (confirmed) {
+                        WrMarkorSingleton.getInstance().deleteSelectedItems(_filesystemDialogAdapter.getCurrentSelection());
+                        _filesystemDialogAdapter.unselectAll();
+                        _filesystemDialogAdapter.reloadCurrentFolder();
+                    }
+                });
+                break;
+            }
+
+            case R.id.context_menu_move: {
+                askForMove();
+                break;
+            }
+
+            case R.id.context_menu_info: {
+                if (_filesystemDialogAdapter.areItemsSelected()) {
+                    File file = new ArrayList<>(_filesystemDialogAdapter.getCurrentSelection()).get(0);
+                    FileInfoDialog.show(file, getFragmentManager());
+                }
+                break;
+            }
+
+            case R.id.context_menu_rename: {
+                if (_filesystemDialogAdapter.areItemsSelected()) {
+                    File file = new ArrayList<>(_filesystemDialogAdapter.getCurrentSelection()).get(0);
+                    WrRenameDialog renameDialog = WrRenameDialog.newInstance(file, renamedFile -> reloadCurrentFolder());
+                    renameDialog.show(getFragmentManager(), WrRenameDialog.FRAGMENT_TAG);
+                }
+                break;
+            }
         }
 
-        if (folderToLoad != null){
+        if (folderToLoad != null) {
             _filesystemDialogAdapter.setCurrentFolder(folderToLoad, true);
+            Toast.makeText(getContext(), folderToLoad.getAbsolutePath(), Toast.LENGTH_SHORT).show();
             return true;
         }
 
@@ -328,7 +418,7 @@ public class FilesystemFragment extends GsFragmentBase
         reloadCurrentFolder();
     }
 
-    public static Comparator<File> sortFolder(ArrayList<File> filesCurrentlyShown) {
+    public static Comparator<File> sortFolder(List<File> filesToSort) {
         final int sortMethod = AppSettings.get().getSortMethod();
         final boolean sortReverse = AppSettings.get().isSortReverse();
 
@@ -339,6 +429,14 @@ public class FilesystemFragment extends GsFragmentBase
                     File swap = file;
                     file = other;
                     other = swap;
+                }
+
+                boolean mk1 = MarkdownTextConverter.isTextOrMarkdownFile(file);
+                boolean mk2 = MarkdownTextConverter.isTextOrMarkdownFile(other);
+                if (mk1 && !mk2) {
+                    return 1;
+                } else if (!mk1 && mk2) {
+                    return -1;
                 }
 
                 switch (sortMethod) {
@@ -356,6 +454,47 @@ public class FilesystemFragment extends GsFragmentBase
                 return file.compareTo(other);
             }
         };
+
+        if (filesToSort != null) {
+            Collections.sort(filesToSort, comparator);
+        }
+
         return comparator;
+    }
+
+
+    public void clearSelection() {
+        _filesystemDialogAdapter.unselectAll();
+    }
+
+
+    ///////////////
+    public void askForDeletingFilesRecursive(WrConfirmDialog.ConfirmDialogCallback confirmCallback) {
+        final ArrayList<File> itemsToDelete = new ArrayList<>(_filesystemDialogAdapter.getCurrentSelection());
+        String message = String.format(getString(R.string.do_you_really_want_to_delete_this_witharg), getResources().getQuantityString(R.plurals.documents, itemsToDelete.size())) + "\n\n";
+
+        for (File f : itemsToDelete) {
+            message += "\n" + f.getAbsolutePath();
+        }
+
+        WrConfirmDialog confirmDialog = WrConfirmDialog.newInstance(getString(R.string.confirm_delete), message, itemsToDelete, confirmCallback);
+        confirmDialog.show(getActivity().getSupportFragmentManager(), WrConfirmDialog.FRAGMENT_TAG);
+    }
+
+    private void askForMove() {
+        final ArrayList<File> filesToMove = new ArrayList<>(_filesystemDialogAdapter.getCurrentSelection());
+        FilesystemDialogCreator.showFolderDialog(new FilesystemDialogData.SelectionListenerAdapter() {
+            @Override
+            public void onFsSelected(String request, File file) {
+                super.onFsSelected(request, file);
+                WrMarkorSingleton.getInstance().moveSelectedNotes(filesToMove, file.getAbsolutePath());
+            }
+
+            @Override
+            public void onFsDialogConfig(FilesystemDialogData.Options opt) {
+                opt.titleText = R.string.move;
+                opt.rootFolder = AppSettings.get().getNotebookDirectory();
+            }
+        }, getActivity().getSupportFragmentManager(), getActivity());
     }
 }
