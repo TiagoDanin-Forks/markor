@@ -20,7 +20,6 @@ import com.flask.colorpicker.builder.ColorPickerClickListener;
 import com.flask.colorpicker.builder.ColorPickerDialogBuilder;
 
 import net.gsantner.markor.R;
-import net.gsantner.markor.model.Document;
 import net.gsantner.markor.ui.SearchOrCustomTextDialogCreator;
 import net.gsantner.markor.ui.hleditor.HighlightingEditor;
 import net.gsantner.opoc.format.plaintext.PlainTextStuff;
@@ -94,6 +93,8 @@ public class CommonTextActions {
                         _hlEditor.insertOrReplaceTextOnCursor("\u200B");
                     } else if (callbackPayload.equals(rstr(R.string.search))) {
                         runAction(ACTION_SEARCH);
+                    } else if (callbackPayload.equals(rstr(R.string.break_page_pdf_print))) {
+                        _hlEditor.insertOrReplaceTextOnCursor("<div style='page-break-after:always;'></div>");
                     }
                 });
                 return true;
